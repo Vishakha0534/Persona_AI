@@ -9,10 +9,20 @@ client = OpenAI(
     api_key=os.environ["API_KEY"]
 )
 
-# ---------------- SMART TRIAGE ENGINE ----------------
-def triage(symptoms):
-    text = symptoms.lower().strip()
+# ---------------- INPUT SANITIZATION (FIX 1) ----------------
+def clean_input(text):
+    text = text.strip().lower()
+    text = " ".join(text.split())
 
+    # remove junk inputs
+    if len(text) < 2:
+        return "fever"
+
+    return text
+
+
+# ---------------- RULE ENGINE ----------------
+def rule_triage(text):
     urgent_signals = {
         "chest pain": 3,
         "breathing difficulty": 3,
@@ -34,7 +44,6 @@ def triage(symptoms):
     score = 0
     matched = []
 
-    # ---------------- FUZZY MATCHING ----------------
     def match(k):
         return fuzz.partial_ratio(k, text) >= 80
 
@@ -48,23 +57,17 @@ def triage(symptoms):
             score += w
             matched.append(k)
 
-    # ---------------- DECISION ENGINE ----------------
     if score >= 7:
         level = "urgent"
-        base_conf = 0.85
     elif score >= 3:
         level = "normal"
-        base_conf = 0.70
     else:
         level = "wait"
-        base_conf = 0.55
 
-    confidence = min(base_conf + (score * 0.03), 0.99)
-
-    return level, round(confidence, 2), score
+    return level, score, matched
 
 
-# ---------------- LLM REFINEMENT (MANDATORY FOR VALIDATION) ----------------
+# ---------------- STRICT LLM CALL (FIX 2: CONTROL OUTPUT) ----------------
 def llm_refine(symptoms, rule_output):
     try:
         response = client.chat.completions.create(
@@ -73,50 +76,62 @@ def llm_refine(symptoms, rule_output):
                 {
                     "role": "system",
                     "content": (
-                        "You are a medical triage assistant. "
-                        "Classify severity strictly as: urgent, normal, or wait. "
-                        "Return only one word."
+                        "Return ONLY one word: urgent OR normal OR wait. "
+                        "No explanation. No punctuation."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Symptoms: {symptoms}\nRule-based prediction: {rule_output}"
+                    "content": f"{symptoms} | rule={rule_output}"
                 }
             ]
         )
 
-        return response.choices[0].message.content.strip().lower()
+        out = response.choices[0].message.content.strip().lower()
+
+        # safety filter (VERY IMPORTANT FIX)
+        if out not in ["urgent", "normal", "wait"]:
+            return rule_output, False
+
+        return out, True
 
     except:
-        # fallback if API fails
-        return rule_output
+        return rule_output, False
 
 
-# ---------------- MAIN ENTRY ----------------
+# ---------------- MAIN ----------------
 if __name__ == "__main__":
     try:
-        symptoms = " ".join(sys.argv[1:]).strip()
+        raw_input = " ".join(sys.argv[1:])
+        symptoms = clean_input(raw_input)
 
-        # fallback safety
-        if not symptoms:
-            symptoms = "fever"
+        # STEP 1: rule system
+        rule_level, score, matched = rule_triage(symptoms)
 
-        # STEP 1: rule-based model
-        level, confidence, score = triage(symptoms)
+        # STEP 2: LLM refinement
+        llm_level, llm_ok = llm_refine(symptoms, rule_level)
 
-        # STEP 2: LLM refinement (IMPORTANT FIX FOR OPENENV)
-        level = llm_refine(symptoms, level)
+        # STEP 3: final decision (consistency logic FIX 3)
+        if llm_ok and llm_level == rule_level:
+            final_level = llm_level
+        elif llm_ok:
+            final_level = llm_level  # trust LLM if valid
+        else:
+            final_level = rule_level  # fallback safe
 
-        # adjust confidence slightly after LLM
-        confidence = min(confidence + 0.05, 0.99)
+        # STEP 4: confidence (FIX 4 - more realistic)
+        base_conf = 0.6 + (score * 0.03)
+        llm_boost = 0.1 if llm_ok else -0.05
+        confidence = min(max(base_conf + llm_boost, 0.5), 0.99)
 
-        # ---------------- OPENENV REQUIRED FORMAT ----------------
+        # ---------------- OPENENV FORMAT ----------------
         print("[START] task=triage", flush=True)
         print(f"[STEP] input={symptoms}", flush=True)
-        print(f"[STEP] score={score}", flush=True)
-        print(f"[STEP] rule_output={level}", flush=True)
-        print(f"[STEP] final_prediction={level} confidence={confidence}", flush=True)
-        print(f"[END] task=triage result={level} score={confidence}", flush=True)
+        print(f"[STEP] matched={matched}", flush=True)
+        print(f"[STEP] rule_output={rule_level}", flush=True)
+        print(f"[STEP] llm_output={llm_level} llm_ok={llm_ok}", flush=True)
+        print(f"[STEP] final_prediction={final_level}", flush=True)
+        print(f"[END] task=triage result={final_level} score={round(confidence,2)}", flush=True)
 
     except Exception as e:
         print("[START] task=triage", flush=True)
