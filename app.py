@@ -91,7 +91,7 @@ def home():
     """
 
 # RESET ENVIRONMENT
-@app.get("/reset")
+@app.post("/reset")
 async def reset(task: str = "easy"):
     return await env.reset(task)
 
