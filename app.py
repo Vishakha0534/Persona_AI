@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from env.environment import CareTriageEnv
 from env.models import Action
 from fastapi.responses import HTMLResponse
+from rapidfuzz import fuzz
 
 app = FastAPI(
     title="PersonaAI - Healthcare Triage API",
@@ -111,10 +112,11 @@ class TriageInput(BaseModel):
     symptoms: str
     age: int
 
-def triage_logic(symptoms, age):
-    symptoms = symptoms.lower()
 
-    # 🔴 High-risk symptoms (higher weights)
+def triage_logic(symptoms, age):
+    text = symptoms.lower().strip()
+
+    # High-risk symptoms (weights)
     urgent_keywords = {
         "chest pain": 5,
         "breathing difficulty": 5,
@@ -124,7 +126,7 @@ def triage_logic(symptoms, age):
         "stroke": 7
     }
 
-    # 🟡 Moderate symptoms
+    # Moderate symptoms (weights)
     normal_keywords = {
         "fever": 2,
         "cough": 2,
@@ -136,32 +138,36 @@ def triage_logic(symptoms, age):
 
     score = 0
 
-    # 🔴 Check urgent
+    # fuzzy match function
+    def is_match(keyword, text):
+        return fuzz.partial_ratio(keyword, text) >= 80  # threshold
+
+    # urgent matching (high impact)
     for word, weight in urgent_keywords.items():
-        if word in symptoms:
+        if is_match(word, text):
             score += weight
 
-    # 🟡 Check normal
+    # normal matching
     for word, weight in normal_keywords.items():
-        if word in symptoms:
+        if is_match(word, text):
             score += weight
 
-    # 👴 Age factor
+    # age risk factor
     if age >= 60:
         score += 2
     elif age <= 10:
         score += 1
 
-    # 🧠 Decision thresholds
+    # decision system
     if score >= 6:
         level = "urgent"
-        confidence = min(0.9 + score * 0.01, 0.99)
+        confidence = min(0.90 + (score * 0.01), 0.99)
     elif score >= 2:
         level = "normal"
-        confidence = 0.7 + score * 0.02
+        confidence = 0.70 + (score * 0.02)
     else:
         level = "wait"
-        confidence = 0.5 + score * 0.02
+        confidence = 0.50 + (score * 0.02)
 
     return level, round(confidence, 2)
 

@@ -38,8 +38,8 @@ def analyze(symptoms, age):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--symptoms", type=str, required=True)
-    parser.add_argument("--age", type=int, required=True)
+    parser.add_argument("--symptoms", type=str, default="fever")
+    parser.add_argument("--age", type=int, default=25)
 
     args = parser.parse_args()
 
