@@ -114,37 +114,56 @@ class TriageInput(BaseModel):
 def triage_logic(symptoms, age):
     symptoms = symptoms.lower()
 
-    urgent_keywords = [
-        "chest pain", "breathing difficulty", "unconscious",
-        "severe bleeding", "heart attack", "stroke"
-    ]
+    # 🔴 High-risk symptoms (higher weights)
+    urgent_keywords = {
+        "chest pain": 5,
+        "breathing difficulty": 5,
+        "unconscious": 6,
+        "severe bleeding": 6,
+        "heart attack": 7,
+        "stroke": 7
+    }
 
-    normal_keywords = [
-        "fever", "cough", "cold", "headache",
-        "vomiting", "infection"
-    ]
+    # 🟡 Moderate symptoms
+    normal_keywords = {
+        "fever": 2,
+        "cough": 2,
+        "cold": 1,
+        "headache": 1,
+        "vomiting": 2,
+        "infection": 3
+    }
 
     score = 0
 
-    # urgent detection
-    for word in urgent_keywords:
+    # 🔴 Check urgent
+    for word, weight in urgent_keywords.items():
         if word in symptoms:
-            return "urgent", 0.95   # immediate return
+            score += weight
 
-    # Normal scoring
-    for word in normal_keywords:
+    # 🟡 Check normal
+    for word, weight in normal_keywords.items():
         if word in symptoms:
-            score += 1
+            score += weight
 
-    # Age factor
-    if age > 60:
+    # 👴 Age factor
+    if age >= 60:
+        score += 2
+    elif age <= 10:
         score += 1
 
-    if score >= 2:
-        return "normal", 0.7
+    # 🧠 Decision thresholds
+    if score >= 6:
+        level = "urgent"
+        confidence = min(0.9 + score * 0.01, 0.99)
+    elif score >= 2:
+        level = "normal"
+        confidence = 0.7 + score * 0.02
     else:
-        return "wait", 0.5
+        level = "wait"
+        confidence = 0.5 + score * 0.02
 
+    return level, round(confidence, 2)
 
 @app.post("/triage")
 async def triage(data: dict):
