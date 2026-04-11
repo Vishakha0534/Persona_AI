@@ -1,10 +1,7 @@
 [project]
 name = "personaai"
 version = "0.1.0"
-description = "AI-powered healthcare triage system"
-authors = [
-    {name = "Vishakha Solanki"}
-]
+requires-python = ">=3.10,<3.13"
 
 dependencies = [
     "fastapi",
@@ -13,7 +10,5 @@ dependencies = [
     "openenv>=0.1.13"
 ]
 
-requires-python = ">=3.10,<3.13"
-
 [project.scripts]
-server = "server.app:app"
+server = "server.app:main"
