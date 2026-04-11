@@ -1,9 +1,9 @@
 from unittest import result
-
 from fastapi import FastAPI
 from pydantic import BaseModel
 from env.environment import CareTriageEnv
 from env.models import Action
+from fastapi.responses import HTMLResponse
 
 app = FastAPI(
     title="PersonaAI - Healthcare Triage API",
@@ -14,14 +14,81 @@ app = FastAPI(
 env = CareTriageEnv()
 
 # HEALTH CHECK
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def home():
-    return {
-        "status": "running",
-        "project": "PersonaAI",
-        "message": "Healthcare AI Triage System Active"
-    }
+    return """
+    <html>
+        <head>
+            <title>PersonaAI</title>
+            <style>
+                body {
+                    font-family: Arial;
+                    text-align: center;
+                    background: #0f172a;
+                    color: white;
+                    margin-top: 80px;
+                }
+                h1 {
+                    font-size: 40px;
+                }
+                input {
+                    padding: 10px;
+                    margin: 5px;
+                    border-radius: 5px;
+                    border: none;
+                }
+                button {
+                    padding: 10px 20px;
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }
+                #result {
+                    margin-top: 20px;
+                    font-size: 18px;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🤖 PersonaAI</h1>
+            <p>Healthcare AI Triage System</p>
 
+            <input id="symptoms" placeholder="Enter symptoms" />
+            <br>
+            <input id="age" type="number" placeholder="Enter age" />
+            <br><br>
+
+            <button onclick="predict()">Check Triage</button>
+
+            <div id="result"></div>
+
+            <br><br>
+            <a href="/docs" style="color: lightblue;">Open API Docs</a>
+
+            <script>
+                async function predict() {
+                    const symptoms = document.getElementById("symptoms").value;
+                    const age = document.getElementById("age").value;
+
+                    const res = await fetch('/triage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symptoms, age: parseInt(age) })
+                    });
+
+                    const data = await res.json();
+
+                    document.getElementById("result").innerHTML =
+                        "Prediction: " + data.prediction +
+                        "<br>Confidence: " + data.confidence +
+                        "<br>Advice: " + data.advice;
+                }
+            </script>
+        </body>
+    </html>
+    """
 
 # RESET ENVIRONMENT
 @app.get("/reset")
