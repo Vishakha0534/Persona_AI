@@ -1,0 +1,46 @@
+name: PersonaAI-HealthCareTriage
+description: Hospital triage system where AI assigns beds to patients based on severity
+
+version: 1.0
+
+tasks:
+  - name: easy
+    description: 2 patients, simple prioritization
+    max_steps: 6
+
+  - name: medium
+    description: 3 patients, moderate complexity
+    max_steps: 6
+
+  - name: hard
+    description: 4+ patients with dynamic arrivals
+    max_steps: 6
+
+observation_space:
+  type: dict
+  properties:
+    patients:
+      type: list
+      description: list of patients with id, symptoms, severity, assigned
+    available_beds:
+      type: integer
+    step_count:
+      type: integer
+
+action_space:
+  type: dict
+  properties:
+    patient_id:
+      type: integer
+    assign_bed:
+      type: boolean
+
+reward:
+  type: float
+  range: [0.0, 1.0]
+  description: Reward based on correct prioritization and partial progress
+
+termination:
+  conditions:
+    - max_steps reached
+    - no beds available
