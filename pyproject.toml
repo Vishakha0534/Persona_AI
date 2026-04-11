@@ -1,0 +1,15 @@
+[project]
+name = "personaai"
+version = "0.1.0"
+description = "AI-powered healthcare triage system using RL environment"
+authors = [
+    {name = "Vishakha Solanki"}
+]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic"
+]
+
+[tool.openenv]
+entrypoint = "app.py"
