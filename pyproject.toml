@@ -1,15 +1,19 @@
 [project]
 name = "personaai"
 version = "0.1.0"
-description = "AI-powered healthcare triage system using RL environment"
+description = "AI-powered healthcare triage system"
 authors = [
     {name = "Vishakha Solanki"}
 ]
+
 dependencies = [
     "fastapi",
     "uvicorn",
-    "pydantic"
+    "pydantic",
+    "openenv>=0.1.13"
 ]
 
-[tool.openenv]
-entrypoint = "app.py"
+requires-python = ">=3.10,<3.13"
+
+[project.scripts]
+server = "server.app:app"
