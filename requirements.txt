@@ -4,3 +4,4 @@ pydantic
 requests
 rapidfuzz
 openai> = 1.0.0
+python-dotenv
