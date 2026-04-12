@@ -32,12 +32,12 @@ def clean_input(text):
 def rule_triage(text):
 
     urgent = {
-        "chest pain": 3,
-        "breathing difficulty": 3,
-        "unconscious": 4,
-        "severe bleeding": 4,
-        "heart attack": 5,
-        "stroke": 5
+        "chest pain": 5,
+        "breathing difficulty": 5,
+        "unconscious": 6,
+        "severe bleeding": 6,
+        "heart attack": 7,
+        "stroke": 7
     }
 
     normal = {
@@ -53,21 +53,19 @@ def rule_triage(text):
     matched = []
 
     def match(k):
-        return fuzz.partial_ratio(k, text) >= 80
+        return k in text 
 
+    # PRIORITY CHECK
     for k, w in urgent.items():
         if match(k):
-            score += w
-            matched.append(k)
+            return "urgent", w, [k]   # immediate override
 
     for k, w in normal.items():
         if match(k):
             score += w
             matched.append(k)
 
-    if score >= 7:
-        level = "urgent"
-    elif score >= 3:
+    if score >= 3:
         level = "normal"
     else:
         level = "wait"
@@ -78,6 +76,7 @@ def rule_triage(text):
 # ---------------- TASK 2: RISK SCORE ----------------
 def risk_score(score):
     return min(score / 10.0, 1.0)
+
 
 
 # ---------------- NEAREST HOSPITAL (OPENSTREETMAP) ----------------
