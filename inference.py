@@ -4,6 +4,10 @@ import requests
 from rapidfuzz import fuzz
 from openai import OpenAI
 
+def clean_text(text):
+    return " ".join(text.lower().strip().split())
+
+
 # ---------------- SAFE ENV ----------------
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 API_KEY = os.environ.get("API_KEY", "")
@@ -28,6 +32,7 @@ def clean_input(text):
 
 # ---------------- RULE ENGINE (FIXED & SAFE) ----------------
 def rule_triage(text):
+    text = clean_text(text)
 
     urgent = {
         "chest pain": 5,
