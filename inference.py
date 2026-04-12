@@ -232,6 +232,13 @@ if __name__ == "__main__":
         # ---------------- OPENENV OUTPUT ----------------
         print("[START] task=hospital_triage_system", flush=True)
 
+        print("[TASKS]", flush=True)
+        print("task_1=triage_classification", flush=True)
+        print("task_2=risk_scoring", flush=True)
+        print("task_3=medical_recommendation", flush=True)
+        print("task_4=safety_evaluation", flush=True)
+
+
         print(f"[STEP] symptoms={symptoms}", flush=True)
         print(f"[STEP] matched={matched}", flush=True)
         print(f"[STEP] prediction={final_level}", flush=True)
@@ -239,11 +246,11 @@ if __name__ == "__main__":
         print(f"[STEP] hospital={hospital}", flush=True)
         print(f"[STEP] recommendation={action}", flush=True)
 
-        # TASK SCORES
-        print(f"[STEP] task_1_score={round(t1,2)}", flush=True)
-        print(f"[STEP] task_2_score={round(t2,2)}", flush=True)
-        print(f"[STEP] task_3_score={round(t3,2)}", flush=True)
-        print(f"[STEP] task_4_score={round(t4,2)}", flush=True)
+
+        print(f"[GRADER task_1]={t1}", flush=True)
+        print(f"[GRADER task_2]={t2}", flush=True)
+        print(f"[GRADER task_3]={t3}", flush=True)
+        print(f"[GRADER task_4]={t4}", flush=True)
 
         print(f"[END] task=hospital_triage_system result={final_level} score={round(final_score,2)}", flush=True)
 
