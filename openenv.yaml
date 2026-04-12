@@ -3,17 +3,24 @@ description: Hospital triage system where AI assigns beds to patients based on s
 
 version: 1.0
 
+env_class: env.environment.CareTriageEnv
+
+max_steps: 6
+
 tasks:
   - name: easy
     description: 2 patients, simple prioritization
+    grader: easy
     max_steps: 6
 
   - name: medium
     description: 3 patients, moderate complexity
+    grader: medium
     max_steps: 6
 
   - name: hard
     description: 4+ patients with dynamic arrivals
+    grader: hard
     max_steps: 6
 
 observation_space:
@@ -21,7 +28,6 @@ observation_space:
   properties:
     patients:
       type: list
-      description: list of patients with id, symptoms, severity, assigned
     available_beds:
       type: integer
     step_count:
