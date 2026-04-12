@@ -4,31 +4,29 @@ import requests
 from rapidfuzz import fuzz
 from openai import OpenAI
 
-# ---------------- SAFE ENV LOADING ----------------
+# ---------------- SAFE ENV ----------------
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 API_KEY = os.environ.get("API_KEY", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 
-if not API_BASE_URL or not API_KEY:
-    print("[WARN] Missing API env vars - LLM will fallback", flush=True)
-
-# ---------------- LLM CLIENT ----------------
 client = None
 if API_BASE_URL and API_KEY:
     client = OpenAI(
         base_url=API_BASE_URL,
         api_key=API_KEY
     )
+else:
+    print("[WARN] LLM disabled - using rule system only", flush=True)
 
 
-# ---------------- INPUT CLEANING ----------------
+# ---------------- CLEAN INPUT ----------------
 def clean_input(text):
     text = text.strip().lower()
     text = " ".join(text.split())
     return text if len(text) > 1 else "fever"
 
 
-# ---------------- RULE TRIAGE ENGINE ----------------
+# ---------------- RULE ENGINE (FIXED & SAFE) ----------------
 def rule_triage(text):
 
     urgent = {
@@ -49,39 +47,36 @@ def rule_triage(text):
         "infection": 2
     }
 
+    # 🔥 PRIORITY FIRST (CRITICAL FIX)
+    for k, w in urgent.items():
+        if k in text:
+            return "urgent", w, [k]
+
     score = 0
     matched = []
 
-    def match(k):
-        return k in text 
-
-    # PRIORITY CHECK
-    for k, w in urgent.items():
-        if match(k):
-            return "urgent", w, [k]   # immediate override
-
     for k, w in normal.items():
-        if match(k):
+        if k in text:
             score += w
             matched.append(k)
 
     if score >= 3:
-        level = "normal"
-    else:
-        level = "wait"
+        return "normal", score, matched
 
-    return level, score, matched
+    return "wait", score, matched
 
 
-# ---------------- TASK 2: RISK SCORE ----------------
+# ---------------- RISK SCORE (STABLE) ----------------
 def risk_score(score):
     return min(score / 10.0, 1.0)
 
 
-
-# ---------------- NEAREST HOSPITAL (OPENSTREETMAP) ----------------
+# ---------------- HOSPITAL LOOKUP (SAFE FALLBACK) ----------------
 def get_nearest_hospital(lat, lon):
     try:
+        if lat is None or lon is None:
+            return "Nearby clinic"
+
         query = f"""
         [out:json];
         node["amenity"="hospital"](around:5000,{lat},{lon});
@@ -94,79 +89,74 @@ def get_nearest_hospital(lat, lon):
 
         hospitals = data.get("elements", [])
 
-        if not hospitals:
-            return "Nearby hospital not found"
-
-        h = hospitals[0]
-        return h.get("tags", {}).get("name", "Unknown Hospital")
+        if hospitals:
+            return hospitals[0].get("tags", {}).get("name", "Unknown Hospital")
 
     except:
-        return "Hospital lookup unavailable"
+        pass
+
+    return "District Hospital (fallback)"
 
 
 # ---------------- RESPONSE ENGINE ----------------
-def generate_action(level, symptoms, hospital_name):
+def generate_action(level, hospital):
 
     if level == "urgent":
         return f"""
-🚨 URGENT CASE DETECTED
+🚨 URGENT CASE
 
-• Go immediately to: {hospital_name}
-• Call emergency services if needed
-• Avoid self-medication
-• Keep patient stable
+• Go immediately to: {hospital}
+• Call emergency services
+• Do NOT ignore symptoms
 """
 
     elif level == "normal":
         return f"""
 🟡 NORMAL CASE
 
-Home Care:
-• Rest properly
-• Drink fluids
-• Steam inhalation
-• Monitor 24–48 hours
+• Rest well
+• Hydrate properly
+• Monitor symptoms
 
-If worsens → visit {hospital_name}
+If worse → visit {hospital}
 """
 
     else:
         return f"""
 🟢 MILD CASE
 
-Health Tips:
-• Healthy diet (fruits, vegetables)
+• Healthy diet
 • Light exercise
-• Hydration
 • Observe symptoms
 
-If needed → visit {hospital_name}
+If needed → visit {hospital}
 """
 
 
-# ---------------- LLM REFINEMENT ----------------
+# ---------------- LLM REFINE (SAFE) ----------------
 def llm_refine(symptoms, rule_output):
-    try:
-        if not client:
-            return rule_output, False
 
+    if not client:
+        return rule_output, False
+
+    try:
         res = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": "Return ONLY one word: urgent, normal, wait"},
-                {"role": "user", "content": f"{symptoms} | rule={rule_output}"}
+                {"role": "user", "content": symptoms}
             ]
         )
 
         out = res.choices[0].message.content.strip().lower()
 
-        if out not in ["urgent", "normal", "wait"]:
-            return rule_output, False
-
-        return out, True
+        if out in ["urgent", "normal", "wait"]:
+            return out, True
 
     except:
-        return rule_output, False
+        pass
+
+    return rule_output, False
 
 
 # ---------------- MAIN ----------------
@@ -200,14 +190,22 @@ if __name__ == "__main__":
 
         final_level = llm_level if llm_ok else rule_level
 
-        hospital = get_nearest_hospital(lat, lon) if lat and lon else "Nearby clinic"
+        hospital = get_nearest_hospital(lat, lon)
 
-        action = generate_action(final_level, symptoms, hospital)
+        action = generate_action(final_level, hospital)
 
-        confidence = min(max(0.6 + score * 0.03, 0.5), 0.99)
+        confidence = {
+            "urgent": 0.95,
+            "normal": 0.75,
+            "wait": 0.55
+        }.get(final_level, 0.6)
 
         # ---------------- OPENENV OUTPUT ----------------
         print("[START] task=hospital_triage_system", flush=True)
+
+        print(f"[STEP] task_1=triage_classification", flush=True)
+        print(f"[STEP] task_2=risk_scoring", flush=True)
+        print(f"[STEP] task_3=hospital_recommendation", flush=True)
 
         print(f"[STEP] symptoms={symptoms}", flush=True)
         print(f"[STEP] matched={matched}", flush=True)
@@ -220,7 +218,7 @@ if __name__ == "__main__":
 
         print(f"[STEP] recommendation={action}", flush=True)
 
-        print(f"[END] task=hospital_triage_system result={final_level} score={round(confidence,2)}", flush=True)
+        print(f"[END] task=hospital_triage_system result={final_level} score={confidence}", flush=True)
 
     except Exception as e:
         print("[START] task=hospital_triage_system", flush=True)
