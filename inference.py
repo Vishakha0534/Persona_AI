@@ -47,24 +47,32 @@ def rule_triage(text):
         "infection": 2
     }
 
-    # 🔥 PRIORITY FIRST (CRITICAL FIX)
+    text = text.lower()
+
+    matched_urgent = []
+    matched_normal = []
+    score = 0
+
+    # 🔥 STEP 1: STRICT URGENT PRIORITY CHECK (FIX)
     for k, w in urgent.items():
         if k in text:
-            return "urgent", w, [k]
+            matched_urgent.append(k)
+            score += w
 
-    score = 0
-    matched = []
+    # 🚨 IF ANY URGENT FOUND → DIRECT RETURN
+    if matched_urgent:
+        return "urgent", score, matched_urgent
 
+    # 🟡 STEP 2: NORMAL ONLY IF NO URGENT
     for k, w in normal.items():
         if k in text:
+            matched_normal.append(k)
             score += w
-            matched.append(k)
 
     if score >= 3:
-        return "normal", score, matched
+        return "normal", score, matched_normal
 
-    return "wait", score, matched
-
+    return "wait", score, matched_normal
 
 # ---------------- RISK SCORE (STABLE) ----------------
 def risk_score(score):
