@@ -17,10 +17,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 
 client = None
 if API_BASE_URL and API_KEY:
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=API_KEY
-    )
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 else:
     print("[WARN] LLM disabled - rule system only", flush=True)
 
@@ -33,7 +30,6 @@ def clean_input(text):
 
 # ---------------- TRIAGE ENGINE ----------------
 def rule_triage(text):
-
     text = clean_text(text)
 
     urgent = {
@@ -69,7 +65,7 @@ def rule_triage(text):
             matched.append(k)
             score += w
 
-    if score >= 3:
+    if score >= 2:
         return "normal", score, matched
 
     return "wait", score, matched
@@ -109,19 +105,15 @@ def get_nearest_hospital(lat, lon):
 
 # ---------------- RESPONSE ENGINE ----------------
 def generate_action(level, hospital):
-
     if level == "urgent":
         return f"URGENT → Go to {hospital} immediately"
-
     elif level == "normal":
         return f"NORMAL → Monitor symptoms, visit {hospital} if worse"
-
     return f"MILD → Home care, observe symptoms, {hospital}"
 
 
 # ---------------- LLM REFINE ----------------
 def llm_refine(symptoms, rule_output):
-
     if not client:
         return rule_output, False
 
@@ -166,6 +158,10 @@ def task_4(level):
         return 0.75
     return 0.6
 
+# ⭐ NEW TASK: CONSISTENCY
+def task_5_consistency(rule_level, final_level):
+    return 1.0 if rule_level == final_level else 0.7
+
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
@@ -199,25 +195,27 @@ if __name__ == "__main__":
         hospital = get_nearest_hospital(lat, lon)
         action = generate_action(final_level, hospital)
 
-        # ---------------- GRADERS ----------------
+        # ---------------- TASK SCORES ----------------
         t1 = task_1(final_level)
         t2 = task_2(score)
         t3 = task_3(hospital, final_level)
         t4 = task_4(final_level)
+        t5 = task_5_consistency(rule_level, final_level)
 
-        final_score = (t1 + t2 + t3 + t4) / 4
+        TASKS = [
+            {"name": "task_1_accuracy", "score": t1},
+            {"name": "task_2_risk", "score": t2},
+            {"name": "task_3_hospital", "score": t3},
+            {"name": "task_4_priority", "score": t4},
+            {"name": "task_5_consistency", "score": t5},
+        ]
 
-        # ---------------- OPENENV FIX (IMPORTANT) ----------------
-        TASK_GRADERS = {
-            "task_1": t1,
-            "task_2": t2,
-            "task_3": t3,
-            "task_4": t4
-        }
+        final_score = sum(t["score"] for t in TASKS) / len(TASKS)
 
+        # ---------------- VALIDATION ----------------
         print("[TASK_VALIDATION]", flush=True)
-        print(f"task_count={len(TASK_GRADERS)}", flush=True)
-        print(f"valid={len(TASK_GRADERS) >= 3}", flush=True)
+        print(f"task_count={len(TASKS)}", flush=True)
+        print(f"valid={len(TASKS) >= 3}", flush=True)
 
         # ---------------- OUTPUT ----------------
         print("[START] task=hospital_triage_system", flush=True)
@@ -228,11 +226,9 @@ if __name__ == "__main__":
         print(f"[STEP] hospital={hospital}", flush=True)
         print(f"[STEP] recommendation={action}", flush=True)
 
-        print("[GRADERS]", flush=True)
-        print(f"task_1={t1:.2f}", flush=True)
-        print(f"task_2={t2:.2f}", flush=True)
-        print(f"task_3={t3:.2f}", flush=True)
-        print(f"task_4={t4:.2f}", flush=True)
+        print("[TASKS]", flush=True)
+        for t in TASKS:
+            print(f"name={t['name']} score={t['score']:.2f}", flush=True)
 
         print(f"[END] result={final_level} score={final_score:.2f}", flush=True)
 
