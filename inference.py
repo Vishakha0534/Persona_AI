@@ -202,12 +202,13 @@ if __name__ == "__main__":
         t4 = task_4(final_level)
         t5 = task_5_consistency(rule_level, final_level)
 
-        TASKS = [
-            {"name": "task_1_accuracy", "score": t1},
-            {"name": "task_2_risk", "score": t2},
-            {"name": "task_3_hospital", "score": t3},
-            {"name": "task_4_priority", "score": t4},
-            {"name": "task_5_consistency", "score": t5},
+        TASKS = 
+        [
+        {"name": "task1", "score": t1},
+        {"name": "task2", "score": t2},
+        {"name": "task3", "score": t3},
+        {"name": "task4", "score": t4},
+        {"name": "task5", "score": t5},
         ]
 
         final_score = sum(t["score"] for t in TASKS) / len(TASKS)
@@ -228,7 +229,7 @@ if __name__ == "__main__":
 
         print("[TASKS]", flush=True)
         for t in TASKS:
-            print(f"{t['name']}={t['score']:.2f}", flush=True)
+            print(f"{t['name']}={t['score']}", flush=True)
 
         print(f"[END] result={final_level} score={final_score:.2f}", flush=True)
 
