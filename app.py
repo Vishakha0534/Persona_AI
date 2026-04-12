@@ -27,46 +27,50 @@ def home():
                     text-align: center;
                     background: #0f172a;
                     color: white;
-                    margin-top: 80px;
+                    margin-top: 60px;
                 }
-                h1 {
-                    font-size: 40px;
-                }
+                h1 { font-size: 40px; }
                 input {
                     padding: 10px;
-                    margin: 5px;
-                    border-radius: 5px;
+                    margin: 6px;
+                    border-radius: 6px;
                     border: none;
+                    width: 250px;
                 }
                 button {
-                    padding: 10px 20px;
+                    padding: 12px 25px;
                     background: #6366f1;
                     color: white;
                     border: none;
                     border-radius: 8px;
                     cursor: pointer;
+                    font-size: 16px;
                 }
                 #result {
-                    margin-top: 20px;
+                    margin-top: 25px;
                     font-size: 18px;
+                    line-height: 1.6;
+                    background: #1e293b;
+                    padding: 20px;
+                    border-radius: 10px;
+                    display: inline-block;
+                    min-width: 300px;
                 }
             </style>
         </head>
         <body>
+
             <h1>🤖 PersonaAI</h1>
-            <p>Healthcare AI Triage System</p>
+            <p>Smart Healthcare Triage System</p>
 
             <input id="symptoms" placeholder="Enter symptoms" />
             <br>
             <input id="age" type="number" placeholder="Enter age" />
             <br><br>
 
-            <button onclick="predict()">Check Triage</button>
+            <button onclick="predict()">Analyze</button>
 
             <div id="result"></div>
-
-            <br><br>
-            <a href="/docs" style="color: lightblue;">Open API Docs</a>
 
             <script>
                 async function predict() {
@@ -76,17 +80,24 @@ def home():
                     const res = await fetch('/triage', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ symptoms, age: parseInt(age) })
+                        body: JSON.stringify({
+                            symptoms,
+                            age: parseInt(age)
+                        })
                     });
 
                     const data = await res.json();
 
-                    document.getElementById("result").innerHTML =
-                        "Prediction: " + data.prediction +
-                        "<br>Confidence: " + data.confidence +
-                        "<br>Advice: " + data.advice;
+                    document.getElementById("result").innerHTML = `
+                        <b>Prediction:</b> ${data.prediction} <br>
+                        <b>Confidence:</b> ${data.confidence} <br>
+                        <b>Risk Score:</b> ${data.risk_score ?? "N/A"} <br>
+                        <b>Hospital:</b> ${data.hospital ?? "Nearby Clinic"} <br>
+                        <b>Advice:</b><br> ${data.advice}
+                    `;
                 }
             </script>
+
         </body>
     </html>
     """
@@ -173,23 +184,67 @@ def triage_logic(symptoms, age):
 
 @app.post("/triage")
 async def triage(data: dict):
+
     symptoms = data.get("symptoms", "")
     age = data.get("age", 0)
 
     result, confidence = triage_logic(symptoms, age)
 
-    return {
-    "prediction": result,
-    "confidence": confidence,
-    "severity_level": 3 if result == "urgent" else 2 if result == "normal" else 1,
-    "advice": (
-        "🚨 Go to nearest hospital immediately"
-        if result == "urgent"
-        else "🩺 Consult a doctor soon"
-        if result == "normal"
-        else "💊 Rest and monitor symptoms"
+    # 🔥 IMPROVED severity mapping (realistic scoring)
+    severity_map = {
+        "urgent": 3,
+        "normal": 2,
+        "wait": 1
+    }
+
+    severity_level = severity_map.get(result, 1)
+
+    # 🔥 risk interpretation (frontend + evaluation useful)
+    risk_score = (
+        0.9 if result == "urgent"
+        else 0.6 if result == "normal"
+        else 0.3
     )
-}
+
+    # 🔥 structured advice engine (IMPORTANT UPGRADE)
+    advice_map = {
+        "urgent": """
+🚨 URGENT CONDITION
+
+• Visit nearest hospital immediately
+• Avoid self-medication
+• Seek emergency care
+""",
+        "normal": """
+🩺 MODERATE CONDITION
+
+• Consult doctor within 24–48 hours
+• Rest and hydrate
+• Monitor symptoms
+""",
+        "wait": """
+💊 MILD CONDITION
+
+• Rest at home
+• Drink fluids
+• Eat healthy food
+• Monitor symptoms for 24–48 hours
+"""
+    }
+
+    advice = advice_map[result]
+
+    # 🔥 OPTIONAL: hospital hook (safe fallback)
+    hospital = "Nearest hospital recommended"
+
+    return {
+        "prediction": result,
+        "confidence": round(confidence, 2),
+        "severity_level": severity_level,
+        "risk_score": risk_score,
+        "hospital": hospital,
+        "advice": advice.strip()
+    }
 
 
 # HELPER FUNCTION
