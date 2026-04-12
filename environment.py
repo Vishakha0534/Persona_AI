@@ -27,23 +27,23 @@ class CareTriageEnv:
 
         if task == "easy":
             self.patients = [
-                Patient(1, 9, "chest pain", False),
-                Patient(2, 3, "fever", False),
+                Patient(id=1, symptoms="chest pain", severity=9, assigned=False),
+                Patient(id=2, symptoms="fever", severity=3, assigned=False),
             ]
 
         elif task == "medium":
             self.patients = [
-                Patient(1, 8, "breathing issue", False),
-                Patient(2, 6, "high fever", False),
-                Patient(3, 2, "cold", False),
+                Patient(id=1, symptoms="breathing issue", severity=8, assigned=False),
+                Patient(id=2, symptoms="high fever", severity=6, assigned=False),
+                Patient(id=3, symptoms="cold", severity=2, assigned=False),
             ]
 
         else:  # hard
             self.patients = [
-                Patient(1, 9, "heart attack", False),
-                Patient(2, 7, "lung issue", False),
-                Patient(3, 5, "fever", False),
-                Patient(4, 2, "headache", False),
+                Patient(id=1, symptoms="heart attack", severity=9, assigned=False),
+                Patient(id=2, symptoms="lung issue", severity=7, assigned=False),
+                Patient(id=3, symptoms="fever", severity=5, assigned=False),
+                Patient(id=4, symptoms="headache", severity=2, assigned=False),
             ]
 
         return self._response(0.0, False, None)
@@ -94,10 +94,10 @@ class CareTriageEnv:
             new_id = len(self.patients) + 1
             self.patients.append(
                 Patient(
-                    new_id,
-                    random.randint(3, 9),
-                    "emergency",
-                    False
+                    id=new_id,
+                    symptoms="emergency",
+                    severity=random.randint(3, 9),
+                    assigned=False,
                 )
             )
 

@@ -1,3 +1,21 @@
+name: personaai-email-triage
+version: 0.1.0
+author: Vishakha Solanki
+description: "OpenEnv for email/incident triage: triage, reply, summarize & recommend remediation (easy->hard tasks)."
+api:
+  reset: true
+  step: true
+  state: true
+models:
+  observation: env.models.Observation
+  action: env.models.Action
+  reward: env.models.Reward
+tags:
+  - openenv
+  - email
+  - triage
+  - support
+  - incident
 name: PersonaAI-HealthCareTriage
 description: Hospital triage system where AI assigns beds to patients based on severity
 

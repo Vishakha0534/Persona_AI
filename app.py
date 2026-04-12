@@ -1,3 +1,100 @@
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from uuid import uuid4
+from fastapi.middleware.cors import CORSMiddleware
+import os
+import logging
+import traceback
+
+from env.openenv_env import OpenEnv
+from env.models import Action as EnvAction
+
+DEBUG = os.environ.get("DEBUG", "1") == "1"
+
+if DEBUG:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
+app = FastAPI(title="PersonaAI OpenEnv API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(Exception)
+async def debug_exception_handler(request: Request, exc: Exception):
+    logging.exception("Unhandled exception while processing request")
+    if DEBUG:
+        tb = traceback.format_exc()
+        return JSONResponse(status_code=500, content={"error": str(exc), "traceback": tb})
+    return JSONResponse(status_code=500, content={"error": "internal server error"})
+
+# simple in-memory session store: session_id -> env instance
+SESSIONS: Dict[str, OpenEnv] = {}
+
+
+class ResetRequest(BaseModel):
+    difficulty: Optional[str] = "easy"
+    seed: Optional[int] = 0
+
+
+class StepRequest(BaseModel):
+    session_id: str
+    action: Dict[str, Any]
+
+
+@app.get("/")
+def root():
+    return {"ok": True, "info": "PersonaAI OpenEnv API"}
+
+
+@app.post("/reset")
+def reset(req: ResetRequest):
+    if req.difficulty not in ("easy", "medium", "hard"):
+        raise HTTPException(status_code=400, detail="invalid difficulty")
+    env = OpenEnv(difficulty=req.difficulty, seed=req.seed or 0)
+    obs = env.reset()
+    session_id = str(uuid4())
+    SESSIONS[session_id] = env
+    return {"session_id": session_id, "observation": obs.dict()}
+
+
+@app.post("/step")
+def step(req: StepRequest):
+    env = SESSIONS.get(req.session_id)
+    if env is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    try:
+        action = EnvAction.parse_obj(req.action)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"invalid action: {e}")
+    obs, reward, done, info = env.step(action)
+    return {"observation": obs.dict(), "reward": reward.dict(), "done": done, "info": info}
+
+
+@app.get("/state")
+def state(session_id: str):
+    env = SESSIONS.get(session_id)
+    if env is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"state": env.state()}
+
+
+@app.post("/baseline")
+def baseline(use_openai: Optional[bool] = False):
+    # run baseline script programmatically to return scores
+    from baseline import run_baseline
+
+    results = run_baseline(use_openai=use_openai)
+    return {"results": results}
 from unittest import result
 from fastapi import FastAPI
 from pydantic import BaseModel

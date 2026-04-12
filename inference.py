@@ -3,6 +3,8 @@ import os
 import requests
 from rapidfuzz import fuzz
 from openai import OpenAI
+import re
+import logging
 
 
 # ---------------- TEXT CLEANING ----------------
@@ -21,6 +23,8 @@ if API_BASE_URL and API_KEY:
 else:
     print("[WARN] LLM disabled - rule system only", flush=True)
 
+logging.basicConfig(level=logging.INFO)
+
 
 # ---------------- INPUT CLEAN ----------------
 def clean_input(text):
@@ -28,9 +32,33 @@ def clean_input(text):
     return text if len(text) > 1 else "fever"
 
 
+def extract_age(text):
+    """Extract explicit age mentions like '14', '14 years', '14 y/o', '14-year-old'.
+
+    Returns an int age or None if not found.
+    """
+    # look for patterns like '14 y', '14yo', '14-year-old', '14 years'
+    m = re.search(r"(\d{1,3})\s*(?:y(?:ears?)?|yo|y/o|yrs?|-year-old|year-old)\b", text)
+    if m:
+        try:
+            return int(m.group(1))
+        except Exception:
+            return None
+    # fallback: standalone number that is plausibly an age (2-120)
+    m2 = re.search(r"\b(\d{1,3})\b", text)
+    if m2:
+        val = int(m2.group(1))
+        if 1 <= val <= 120:
+            return val
+    return None
+
+
 # ---------------- TRIAGE ENGINE ----------------
 def rule_triage(text):
     text = clean_text(text)
+
+    age = extract_age(text)
+    logging.info(f"rule_triage: extracted age={age} text='{text}'")
 
     urgent = {
         "chest pain": 5,
@@ -66,6 +94,13 @@ def rule_triage(text):
             score += w
 
     if score >= 2:
+        # Special-case: fever alone in older children/teenagers is usually NOT urgent.
+        # Escalate to urgent only for very young (<2), very old (>=65), or if other
+        # red-flag signs appear.
+        if "fever" in matched and age is not None:
+            if age < 2 or age >= 65:
+                return "urgent", score, matched
+            # otherwise treat as normal unless additional red flags detected
         return "normal", score, matched
 
     return "wait", score, matched
@@ -190,7 +225,24 @@ if __name__ == "__main__":
         risk = risk_score(score)
 
         llm_level, llm_ok = llm_refine(symptoms, rule_level)
-        final_level = llm_level if llm_ok else rule_level
+        # Protect deterministic urgent signals: never let the LLM downgrade an
+        # explicitly matched urgent rule (e.g., 'chest pain') to a lower label.
+        RED_FLAGS = ["severe", "worse", "increasing", "shortness", "unconscious", "severe bleeding", "cannot breathe"]
+        if llm_ok:
+            if rule_level == "urgent" and llm_level != "urgent":
+                logging.info(f"LLM attempted to downgrade urgent->{llm_level}; keeping urgent")
+                final_level = rule_level
+            elif rule_level != "urgent" and llm_level == "urgent":
+                # allow LLM to upgrade to urgent only if red-flag words are present
+                if any(r in symptoms.lower() for r in RED_FLAGS):
+                    final_level = "urgent"
+                else:
+                    logging.info("LLM suggested urgent but no red-flag tokens found; keeping rule_level")
+                    final_level = rule_level
+            else:
+                final_level = llm_level
+        else:
+            final_level = rule_level
 
         hospital = get_nearest_hospital(lat, lon)
         action = generate_action(final_level, hospital)

@@ -1,5 +1,5 @@
 ---
-title: PersonaAI
+title: PersonaAI (OpenEnv email triage)
 emoji: 🤖
 colorFrom: blue
 colorTo: purple
@@ -8,97 +8,75 @@ app_file: app.py
 pinned: false
 ---
 
-## 🚀 PersonaAI
-## 🧠 Overview
+## PersonaAI — OpenEnv: Email & Incident Triage
 
-PersonaAI is a lightweight Reinforcement Learning (RL) based environment where an agent interacts with a custom-built system and learns decision-making through rewards and penalties.
+This repository now contains a complete OpenEnv-compliant environment that simulates real-world email/incident triage tasks (not a game or toy). It includes three graded tasks (easy → medium → hard), typed Pydantic models, deterministic graders, a baseline inference script, and deployment metadata.
 
-This project focuses on understanding the core RL loop: State → Action → Reward → Next State.
+Highlights
+- Real-world task: customer support / incident triage workflows
+- Full OpenEnv spec: typed `Observation`, `Action`, `Reward`, `reset()`, `step()`, `state()`
+- Three tasks with deterministic graders: `easy`, `medium`, `hard` (partial credit)
+- Baseline inference script using OpenAI (optional) or deterministic heuristic
+- `openenv.yaml` with metadata for validation and deployment
 
-## 🎯 Objective
+Files added/changed
+- `env/models.py` — Pydantic models for Observation, Action, Reward
+- `env/tasks.py` — example dataset + graders (easy/medium/hard)
+- `env/openenv_env.py` — OpenEnv environment implementing reset/step/state
+- `baseline.py` — baseline agent script (uses OPENAI_API_KEY if present)
+- `openenv.yaml` — environment metadata
 
-To build a simple RL environment where an agent can:
+Quickstart
 
-Observe environment state
-Take actions
-Receive rewards/penalties
-Learn optimal behavior over time
-## 🌍 Environment Description
-
-The environment is a custom simulation system built in Python.
-
-## ⚙️ Key Features:
-Episodic structure (each run is a new episode)
-Limited steps per episode
-Resource-constrained system
-Task-based environment setup (e.g., easy mode)
-Reward-based feedback mechanism
-## 🔁 RL Cycle:
-Environment resets
-Agent observes state
-Agent takes action
-Environment returns next state + reward
-Episode continues until termination condition
-## 📊 Observation Space
-
-The observation space represents the current state of the environment.
-
-## 🧠 State includes:
-Current step count
-Available resources (e.g., beds or capacity)
-Task type (easy/medium/hard)
-Current environment status (patients/tasks lists)
-
-## 🎮 Action Space
-
-The agent can take discrete actions based on the current state.
-
-## ⚙️ Actions:
-0 → Skip / Do nothing
-1 → Accept / Allocate resource
-2 → Reject task
-
-## 🏗️ Project Structure
-PersonaAI/
-│
-├── app.py                 # Main entry point
-├── inference.py           # Agent logic
-├── env/
-│   └── environment.py     # Custom RL environment
-├── openenv.yaml           # Configuration file
-├── requirements.txt       # Dependencies
-└── README.md
-
-## 🚀 Setup Instructions
-1. Clone repository
-git clone https://github.com/Vishakha0534/Persona_AI.git
-cd PersonaAI
-2. Create virtual environment
+1. Install deps
+```powershell
 python -m venv venv
-venv\Scripts\activate   # Windows
-3. Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
-4. Run project
-python app.py
+```
 
-## 🧪 Tech Stack
-Python 
-Reinforcement Learning (RL) basics 
-Custom environment design
-YAML configuration
+2. Run baseline (heuristic)
+```powershell
+python baseline.py
+```
 
-## 🔮 Future Improvements
-🌐 Frontend dashboard for visualization
-🧠 Improved memory-based learning agent
-🗺️ Google Maps integration
+3. Run baseline using OpenAI (optional)
+```powershell
+setx OPENAI_API_KEY "<your-key>"
+python baseline.py
+```
 
-## 👩‍💻 Author
+OpenEnv API
 
-Vishakha Solanki
+- `reset()` -> `env.models.Observation`
+- `step(action: env.models.Action)` -> `(Observation, Reward, done: bool, info: dict)`
+- `state()` -> serializable dict with internal state (e.g., phase)
 
-## 🏆 Key Highlights
-1. Demonstrates RL environment design
-2. Implements state-action-reward loop
-3. Lightweight and modular architecture
-4. Beginner-friendly reinforcement learning project
-5. Deployed on Hugging Face Spaces using Docker for reproducible environment execution.
+Action / Observation / Reward
+- Observation: `text`, `metadata`, `task_id`, `step`, `max_steps`.
+- Action: `action_type` (e.g., `label`, `reply`, `summary`, `recommend`), `content`, `label`.
+- Reward: `reward` float in [0.0, 1.0], with `debug` giving partial-credit diagnostics.
+
+Tasks & Graders
+
+- easy: single-label priority classification (partial credit for coarse match)
+- medium: short reply addressing customer keywords + greeting (partial credit)
+- hard: 3-phase incident handling (classify → summarize → remediation). Each phase gives partial reward; total normalized to [0,1].
+
+Reward shaping
+
+- Partial progress signals are provided by graders (overlap scores, length heuristics, phase-wise credit).
+- Extra steps beyond `max_steps` are penalized.
+
+Deployment & Docker
+
+- The repository includes a `Dockerfile` (root). Build and run to verify the container. The `openenv.yaml` makes the environment discoverable for OpenEnv tooling and for Hugging Face Spaces deployment.
+
+Notes & Next steps
+
+- This is a first complete implementation focused on a useful domain (support/incident triage). Next improvements: larger example datasets, unit tests, `openenv validate` integration, a minimal web UI for HF Spaces, and more robust OpenAI prompt parsing.
+
+If you'd like, I can:
+- run `openenv validate` locally (if you want me to add a dev dependency)
+- add unit tests for graders
+- wire a minimal FastAPI endpoint for HF Space
