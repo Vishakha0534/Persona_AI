@@ -202,8 +202,7 @@ if __name__ == "__main__":
         t4 = task_4(final_level)
         t5 = task_5_consistency(rule_level, final_level)
 
-        TASKS = 
-        [
+        TASKS = [
         {"name": "task1", "score": t1},
         {"name": "task2", "score": t2},
         {"name": "task3", "score": t3},
