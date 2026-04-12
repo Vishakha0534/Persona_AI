@@ -228,7 +228,7 @@ if __name__ == "__main__":
 
         print("[TASKS]", flush=True)
         for t in TASKS:
-            print(f"name={t['name']} score={t['score']:.2f}", flush=True)
+            print(f"{t['name']}={t['score']:.2f}", flush=True)
 
         print(f"[END] result={final_level} score={final_score:.2f}", flush=True)
 
