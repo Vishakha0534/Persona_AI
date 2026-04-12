@@ -1,11 +1,5 @@
 import random
 import sys
-from pathlib import Path
-
-if __package__ is None and __name__ == "__main__":
-    root_dir = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(root_dir))
-
 import grader
 from models import Patient, Action
 
