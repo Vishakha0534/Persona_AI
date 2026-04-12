@@ -1,8 +1,8 @@
 from unittest import result
 from fastapi import FastAPI
 from pydantic import BaseModel
-from env.environment import CareTriageEnv
-from env.models import Action
+from environment import CareTriageEnv
+from models import Action
 from fastapi.responses import HTMLResponse
 from rapidfuzz import fuzz
 
